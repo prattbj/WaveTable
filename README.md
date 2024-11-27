@@ -5,8 +5,6 @@
 
 This is the source code for a functioning wavetable synthesiser that turns a WAV file into a 256 frame, 2048 samples per frame, band-limited wavetable. 
 
-Here is a short demonstration video: https://youtu.be/qsQEYS-i10k
-
 ### What's next?
 
 I'll be adding some more parameters, like unison voices, phase, pitch, and pan, and then maybe (hopefully) some morphing effects later on. 
