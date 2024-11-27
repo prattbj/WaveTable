@@ -11,7 +11,7 @@
 #include <JuceHeader.h>
 #include "Wave.h"
 #include "Visualiser.h"
-
+#include "LFO.h"
 
 //==============================================================================
 /**
@@ -62,10 +62,14 @@ public:
     juce::AudioVisualiserComponent& getAudioVisualiser() { return audioVisualiser; }
     juce::AudioProcessorValueTreeState& getVTS() { return vts; }
     juce::MidiKeyboardState& getKeyboardState() { return keyboardState; }
+    LFO& getLFO() { return lfo; }
 private:
     //==============================================================================
     Visualiser wavetableVisualiser;
     Wave wavetable;
+    LFO lfo;
+    LFOAttachment gainAttachment;
+    juce::dsp::Gain<float> gain;
     juce::AudioProcessorValueTreeState vts;
     juce::MidiKeyboardState keyboardState;
     juce::Synthesiser synth;
@@ -76,8 +80,10 @@ private:
 class SynthSound : public juce::SynthesiserSound
 {
 public:
-    SynthSound(Frame* frames) : frames(frames) {}
-    Frame* getFrames() { return frames; }
+    SynthSound(Wave* wavetable) : wavetable(wavetable) {}
+    //Frame* getFrames() { return frames; }
+    Wave* getWavetable() { return wavetable; }
+
     bool appliesToNote(int)
     {
         return true;
@@ -91,12 +97,12 @@ public:
         return 2048.f;
     }
 private:
-    Frame* frames;
+    Wave* wavetable;
 };
 class SynthVoice : public juce::SynthesiserVoice
 {
 public:
-    SynthVoice(juce::dsp::ProcessSpec spec) : waveTable(nullptr), sampleRate((float)spec.sampleRate), angleDelta(0.f), phase(), frameNumber(0), midiNoteNumber(0)
+    SynthVoice(juce::dsp::ProcessSpec spec) : waveTable(), sampleRate((float)spec.sampleRate), angleDelta(0.f), phase(), frameNumber(0), midiNoteNumber(0)
     {
 
     }
@@ -107,7 +113,8 @@ public:
     void startNote(int midiNoteNumber, float, juce::SynthesiserSound* sound, int) override
     {
         SynthSound* synthSound = dynamic_cast<SynthSound*>(sound);
-        waveTable = synthSound->getFrames();
+        //waveTable = synthSound->getTable();
+        synthSound->getWavetable()->getFrame(frameNumber, midiNoteNumber, waveTable);
         this->midiNoteNumber = midiNoteNumber;
         float hz = (float)juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
         angleDelta = hz * synthSound->getTableSize() / sampleRate;
@@ -139,7 +146,7 @@ public:
 
         float frac = phase[channel] - (float)index0; 
 
-        float* table = this->waveTable[frameNumber][midiNoteNumber / numSteps];
+        float* table = this->waveTable;
         float value0 = table[index0];
         float value1 = table[index1];
 
@@ -151,12 +158,12 @@ public:
         return currentSample;
     }
 
-    void stopNote(float, bool) override { waveTable = nullptr; }
+    void stopNote(float, bool) override { for (auto& val : waveTable) { val = 0.0f; } }
     void pitchWheelMoved(int) override {}
     void controllerMoved(int, int) override {}
     void setFrameNumber(int n) { frameNumber = n; }
 private:
-    Frame* waveTable;
+    float waveTable[2048];
     float phase[2];
     float angleDelta;
     float sampleRate;

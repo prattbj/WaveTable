@@ -14,7 +14,7 @@
 class Harmonics
 {
 public:
-    Harmonics(juce::File file) : fft(11), toTransform({0.0f}), transformer({0.0f})
+    Harmonics(juce::File file) : fft(11), toTransform({0.0f}), transformer({0.0f}), harmonicTable()
     {
         formatManager.registerBasicFormats();
 
@@ -52,6 +52,10 @@ public:
             //std::copy_n(harmonics[i], 2048, toTransform);
             fft.performRealOnlyForwardTransform(harmonics[i].data(), false);
         }
+        for (int i = 0; i < 256; i++)
+        {
+            interpolate(i, harmonicTable[i].data());
+        }
     }
     
     void fillFrame(Frame& frame, int frameNumber)
@@ -65,7 +69,7 @@ public:
         for (int i = 0; i < 128 / numSteps; i++)
         {
             //We need to clear everything above the highest frequency band
-            float highestFrequencyBand = 48000.0f / (float)juce::MidiMessage::getMidiNoteInHertz(i * numSteps);
+            float highestFrequencyBand = 44000.0f / (float)juce::MidiMessage::getMidiNoteInHertz(i * numSteps);
             
             for (int j = (int)highestFrequencyBand; j < endIndex; j++)
             {
@@ -85,17 +89,29 @@ public:
         int lowerIndex = (int)scaledIndex;
         int upperIndex = lowerIndex + 1 > numFrames - 1 ? numFrames - 1: lowerIndex + 1;
         float ratio = scaledIndex - lowerIndex;
-        for (int i = 0; i < 2048; i++)
+        for (size_t i = 0; i < 4096; i++)
         {
-            arrToFill[i * 2] = (1 - ratio) * harmonics[lowerIndex][i * 2] + ratio * harmonics[upperIndex][i * 2];
-            arrToFill[i * 2 + 1] = (1 - ratio) * harmonics[lowerIndex][i * 2 + 1] + ratio * harmonics[upperIndex][i * 2 + 1];
+            arrToFill[i] = (1 - ratio) * harmonics[lowerIndex][i] + ratio * harmonics[upperIndex][i];
         }
     }
 
+    void getFrame(int tableIndex, int midiNoteNumber, float* arrToFill)
+    {
+        //We need to clear everything above the highest frequency band
+        float highestFrequencyBand = 44000.0f / (float)juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
+        std::copy_n(harmonicTable[tableIndex].data(), 4096, toTransform.data());
+        for (int j = (int)highestFrequencyBand; j < 4096; j++)
+        {
+            toTransform[j] = 0.0f;
+        }
+        fft.performRealOnlyInverseTransform(toTransform.data());
+        std::copy_n(toTransform.data(), 2048, arrToFill);
+    }
 private:
     juce::dsp::FFT fft;
     juce::AudioFormatManager formatManager;
     std::vector<std::array<float,4096>> harmonics;
+    std::array<std::array<float, 4096>, 256> harmonicTable;
     int numFrames;
     std::array<float, 4096> toTransform;
     std::array<float, 4096> transformer;

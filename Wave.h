@@ -29,7 +29,7 @@ public:
         if (file.exists())
         {
             if (harmonics)
-                harmonics.reset();
+                harmonics.get();
             this->file = file;
             harmonics = std::make_unique<Harmonics>(file);
 
@@ -39,7 +39,14 @@ public:
             }
         }
     }
-    Frame* getFrame(int frame) { return frames.data() + frame; }
+    Harmonics* getHarmonics() { return harmonics.get(); }
+    void getFrame(int frame, int midiNoteNumber, float* arrToFill) 
+    { 
+        if (harmonics) 
+            harmonics->getFrame(frame, midiNoteNumber, arrToFill);
+        else
+            memset(arrToFill, 0.f, 2048);
+    }
     Frame* getFrames() { return frames.data(); }
     juce::File getFile() { return file; }
 private:

@@ -12,21 +12,23 @@
 //==============================================================================
 WaveTableAudioProcessor::WaveTableAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       ),
+    : AudioProcessor(BusesProperties()
+#if ! JucePlugin_IsMidiEffect
+#if ! JucePlugin_IsSynth
+        .withInput("Input", juce::AudioChannelSet::stereo(), true)
 #endif
-    wavetable(), wavetableVisualiser(wavetable), vts(*this, nullptr, juce::Identifier("WaveTable"), 
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+    ),
+#endif
+    wavetable(), wavetableVisualiser(wavetable), vts(*this, nullptr, juce::Identifier("WaveTable"),
         {
             std::make_unique<juce::AudioParameterInt>("frame", "Frame", 0, 255, 0)
         }),
     keyboardState(),
-    audioVisualiser(1)
+    audioVisualiser(1),
+    lfo(), gainAttachment(&lfo), 
+    gain()
 {
     audioVisualiser.setBufferSize(80);
     keyboardState.addListener(&wavetableVisualiser);
@@ -108,10 +110,12 @@ void WaveTableAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     {
         synth.addVoice(new SynthVoice(spec));
     }
-    synth.addSound(new SynthSound(wavetable.getFrames()));
+    synth.addSound(new SynthSound(&wavetable));
     synth.setCurrentPlaybackSampleRate(sampleRate);
     audioVisualiser.clear();
     audioVisualiser.setSamplesPerBlock(samplesPerBlock);
+    gainAttachment.reset();
+    gain.prepare(spec);
 }
 
 void WaveTableAudioProcessor::releaseResources()
@@ -161,6 +165,10 @@ void WaveTableAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
     synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     audioVisualiser.pushBuffer(buffer);
+    gain.setGainLinear(gainAttachment.getValue());
+    juce::dsp::AudioBlock<float> block(buffer);
+    juce::dsp::ProcessContextReplacing<float> context(block);
+    //gain.process(context);
 }
 
 //==============================================================================

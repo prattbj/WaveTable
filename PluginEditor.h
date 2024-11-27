@@ -32,6 +32,7 @@ private:
     std::unique_ptr<SliderAttachment> visualiserAttachment;
     juce::MidiKeyboardComponent keyboard;
     juce::AudioVisualiserComponent& audioVisualiser;
+    LFO& lfo;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WaveTableAudioProcessorEditor)
 };
 

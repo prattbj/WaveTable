@@ -30,7 +30,7 @@ public:
     {
         g.fillAll(juce::Colours::black);
 
-        float* wave = (*wavetable.getFrame((int)getValue()))[midiNoteNumber / numSteps];
+        float* wave = (wavetable.getFrames())[(int)getValue()][midiNoteNumber / numSteps];
 
         g.setColour(juce::Colours::blue);
 
@@ -74,9 +74,28 @@ public:
     {
         repaint();
     }
-
-    
+    void mouseEnter(const juce::MouseEvent& e) override
+    {
+        setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+    }
+    void mouseExit(const juce::MouseEvent& e) override
+    {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+    }
+    void mouseDown(const juce::MouseEvent& e) override
+    {
+        savedPoint = juce::Desktop::getMousePosition();
+        setMouseCursor(juce::MouseCursor::NoCursor);
+        juce::Slider::mouseDown(e);
+    }
+    void mouseUp(const juce::MouseEvent& e) override
+    {
+        juce::Desktop::setMousePosition(savedPoint);
+        setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+        juce::Slider::mouseUp(e);
+    }
 private:
+    juce::Point<int> savedPoint;
     int midiNoteNumber;
     Wave& wavetable;
 };
